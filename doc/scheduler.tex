@@ -1,0 +1,42 @@
+Scheduling to prevent time-sensitive non-interference *and* starvation between comparable and non-comparable threads.
+
+Scheduling vector $v$ with slots $i=1 \ldots \infty$.  Scheduling probability $p(i) = 2^{-i}$ with $\sum_i p(i) = 1$.
+
+When thread $t$ changes from Ready to Blocked,
+
+\begin{itemize}
+  \item swap schedule position of $t$ with thread $t'$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
+\end{itemize}
+
+When thread $t$ changes from Blocked to Ready or gets created.
+
+\begin{itemize}
+  \item if newly created, add $t$ add the end of $v$;
+  \item swap schedule position of $t$ with thread $t'$ with $l_{t} \sqsubseteq l_{t'}$ and $t'$ is the first such thread.
+\end{itemize}
+
+When thread $t$ terminates.
+
+\begin{itemize}
+  \item if $t$ was last non-terminated thread at this level in the lattice, just remove it from $v$;
+  \item otherwise, assign $t'$ to the slot of $t$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
+\end{itemize}
+
+Randomized scheduling:
+
+\begin{enumerate}
+  \item Initialize $i$ with 1.
+  \item If $v_i$ is not runnable, remain idle.
+  \item With $p(i)$ probability, schedule $v_i$.
+  \item Otherwise, increment $i$ and repeat from step 2.
+\end{itemize}
+
+Round-robin scheduling:
+
+\begin{enumerate}
+  \item Initialize $i$ with 1.
+  \item If $v_i$ is not runnable, remain idle.
+  \item If $i$ was skipped at the last scheduling decision for $i$, schedule $v_i$.
+  \item Otherwise, skip it, increment $i$ and repeat from step 2.
+\end{itemize}
+

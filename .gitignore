@@ -32,3 +32,8 @@ dist
 .tmp
 typings
 .tscache
+
+doc/*.aux
+doc/*.bbl
+doc/*.blg
+doc/main.pdf
