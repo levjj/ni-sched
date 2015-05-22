@@ -18,7 +18,7 @@
 \newcommand{\mytitle}{Timing-sensitive Secure Multi-Execution}
 \authorinfo{Christopher Schuster}
            {University of California, Santa Cruz}
-           {\texttt{\{cschuste,tdisney,cormac\}@ucsc.edu}}
+           {\texttt{\{cschuste\}@ucsc.edu}}
 
 
 \title{\mytitle}
@@ -73,7 +73,7 @@
 \newcommand{\lab}[1]{\RightLabel{\textsc{\small #1}}}
 \newcommand{\ov}[2]{\genfrac{}{}{0pt}{}{\text{\textbf{#1}}}{\text{\footnotesize{#2}}}}
 \renewcommand{\t}[1]{~\text{#1}~}
-\date{}
+\newenvironment{bpt}{\leavevmode\hbox\bgroup}{\DisplayProof\egroup}
 \begin{document}
 \maketitle
 
@@ -143,20 +143,65 @@ Figure \ref{fig:lattice} shows two different designs of possible security levels
 
 \section{Formalism}
 
-Consider a programming language based on lambda calculus with IO channels as shown in Figure \ref{fig:lang}.  Each channel is opened with a fixed security label and a language-specific name, e.g. the path to a file, and allows blocking reads and writes.
+Consider a programming language based on lambda calculus with IO channels as shown in Figure \ref{fig:lang}.  Each channel is opened with a fixed security label $l$ and a language-specific name $n$, e.g. the path to a file, and allows blocking reads and writes.
 
-\begin{figure}
+Evaluating this language uses a mapping $\Gamma$ from channel $ch$ to a sequence $\vec{n}$ of primitive values, e.g. byte or strings.  A single thread of execution can be either ready $R$, blocked on a channel $B/ch$ or terminated $T$.  While $\rightarrow$ denotes a step of evaluation of a single thread, $\Rightarrow$ is a transition of a system of threads, one for each security label $l$ with specific scheduling.  The complete operational semantics are shown in Figure \ref{fig:lang}.
+
+\begin{figure*}
 \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
 \begin{array}{rl}
-  \multicolumn{2}{l}{x : \text{Identifier} \hfill n : \text{Literal} \hfill l \in \mathcal{L} : \text{Security label}}  \\
-  e & := n ~|~ \lambda x.~e ~|~ x ~|~ e ~ e ~|~ \text{open}~l~e ~|~
-          \text{read}~e ~|~\text{write}~e~e ~|~e ; e \\
-  v & := n ~|~ \lambda x.~e \\
-\end{array} \]
-\caption{Language bla}
+  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel} \hfill l : \t{Security label}} \\
+  \multicolumn{2}{l}{
+    S = \{ R, B/ch, T \} \hfill
+    \Gamma : ch \mapsto \vec{n} \hfill
+    p : \Gamma \times S \times L \times e} \\[1em]
+  e := & n ~|~ \lambda x.~e ~|~ x ~|~ e ~ e ~|~ e ; e ~| \t{open} l~e ~| \t{read} e ~| \t{write} e~e ~|~ch\\
+    v := & n ~|~ \lambda x.~e ~|~ ch \\[1em]
+  E[\circ] := & \circ ~|~E~e~|~v~E~| \t{open} l~E~| \t{read} E~| \t{write} E~e~| \t{write} v~E~|~E~;~e
+  \end{array} \\[1em]
+\]
+\begin{center}
+\begin{bpt}
+  \AxiomC{$\Gamma, L, e \rightarrow \Gamma', S, e' $}
+  \lab{e-ctx}
+  \UnaryInfC{$\Gamma, L, E[e] \rightarrow \Gamma', S, E[e'] $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{}
+  \lab{e-app}
+  \UnaryInfC{$\Gamma, L, (\lambda x. e)~v \rightarrow \Gamma, R, e[x \mapsto v] $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{}
+  \lab{e-seq}
+  \UnaryInfC{$\Gamma, L, (v~;~e) \rightarrow \Gamma, R, e $}
+\end{bpt} \\[2em]
+\begin{bpt}
+  \AxiomC{$ch~\t{fresh} ~~~ \Gamma' = \Gamma[ch \mapsto ()]$}
+  \lab{e-open}
+  \UnaryInfC{$\Gamma, L, \t{open} l~n \rightarrow \Gamma', R, ch $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{$\Gamma(ch) ...  $}
+  \lab{e-write}
+  \UnaryInfC{$\Gamma, L, \t{write} ch~n \rightarrow \Gamma, R, e $}
+\end{bpt} \\[2em]
+\begin{bpt}
+  \AxiomC{}
+  \lab{e-read}
+  \UnaryInfC{$\Gamma, L, \t{read} ch \rightarrow \Gamma', R, v $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{}
+  \lab{e-read-block}
+  \UnaryInfC{$\Gamma, L, \t{read} ch \rightarrow \Gamma, B/ch, \t{read} ch $}
+\end{bpt}
+\end{center}
+\caption{Operational semantics of the language shown in Figure \ref{fig:lang}.}
 \label{fig:lang}
-\end{figure}
+\end{figure*}
 
+\section{Scheduling}
 
 Scheduling to prevent time-sensitive non-interference *and* starvation between comparable and non-comparable threads.
 
