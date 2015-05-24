@@ -10,6 +10,7 @@
 \usepackage[sc]{mathpazo}
 \usepackage{titlesec}
 \usepackage{etoolbox}
+\usepackage{amsthm,amssymb}
 \usepackage{mathtools}
 \usepackage{bussproofs}
 \usepackage[numbers]{natbib}
@@ -74,6 +75,12 @@
 \newcommand{\ov}[2]{\genfrac{}{}{0pt}{}{\text{\textbf{#1}}}{\text{\footnotesize{#2}}}}
 \renewcommand{\t}[1]{~\text{#1}~}
 \newenvironment{bpt}{\leavevmode\hbox\bgroup}{\DisplayProof\egroup}
+
+\newtheoremstyle{plain}{\topsep}{\topsep}{\itshape}{}{\scshape}{.}{5pt plus 1pt minus 1pt}{}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+
 \begin{document}
 \maketitle
 
@@ -150,56 +157,128 @@ Evaluating this language uses a mapping $\Gamma$ from channel $ch$ to a sequence
 \begin{figure*}
 \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
 \begin{array}{rl}
-  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel} \hfill l : \t{Security label}} \\
+  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel}} \\
   \multicolumn{2}{l}{
-    S = \{ R, B/ch, T \} \hfill
-    \Gamma : ch \mapsto \vec{n} \hfill
-    p : \Gamma \times S \times L \times e} \\[1em]
-  e := & n ~|~ \lambda x.~e ~|~ x ~|~ e ~ e ~|~ e ; e ~| \t{open} l~e ~| \t{read} e ~| \t{write} e~e ~|~ch\\
-    v := & n ~|~ \lambda x.~e ~|~ ch \\[1em]
-  E[\circ] := & \circ ~|~E~e~|~v~E~| \t{open} l~E~| \t{read} E~| \t{write} E~e~| \t{write} v~E~|~E~;~e
+    B : ch  \mapsto \vec{n} \times \vec{n}~~(\text{Buffers})~~~\hfill~~~
+  S = \{ \text{R}, \text{B/}ch, \text{T} \}~~(\text{State})} \\[1ex]
+  e := & n ~|~ \lambda x.~e ~|~ x ~|~ e ~ e ~|~ e ; e ~| \t{open} e ~| \t{read} e ~| \t{write} e~e ~|~ch~~\hfill~~
+    v := n ~|~ \lambda x.~e ~|~ ch \\[1ex]
+  E[\circ] := & \circ ~|~E~e~|~v~E~| \t{open} E~| \t{read} E~| \t{write} E~e~| \t{write} v~E~|~E~;~e~|~v~;~E
   \end{array} \\[1em]
 \]
 \begin{center}
 \begin{bpt}
-  \AxiomC{$\Gamma, L, e \rightarrow \Gamma', S, e' $}
+  \AxiomC{$B, e~\rightarrow~B', S', e' $}
   \lab{e-ctx}
-  \UnaryInfC{$\Gamma, L, E[e] \rightarrow \Gamma', S, E[e'] $}
+  \UnaryInfC{$B, E[e]~\rightarrow~B, S', E[e'] $}
 \end{bpt} \hspace{1em}
 \begin{bpt}
   \AxiomC{}
   \lab{e-app}
-  \UnaryInfC{$\Gamma, L, (\lambda x. e)~v \rightarrow \Gamma, R, e[x \mapsto v] $}
+  \UnaryInfC{$B, (\lambda x. e)~v~\rightarrow~B, \text{R}, e[x \mapsto v] $}
 \end{bpt} \hspace{1em}
 \begin{bpt}
   \AxiomC{}
   \lab{e-seq}
-  \UnaryInfC{$\Gamma, L, (v~;~e) \rightarrow \Gamma, R, e $}
-\end{bpt} \\[2em]
+  \UnaryInfC{$B, v_1~;~v_2~\rightarrow~B, \text{R}, v_2 $}
+\end{bpt} \\[1em]
 \begin{bpt}
-  \AxiomC{$ch~\t{fresh} ~~~ \Gamma' = \Gamma[ch \mapsto ()]$}
+  \AxiomC{$ch~$ fresh}
   \lab{e-open}
-  \UnaryInfC{$\Gamma, L, \t{open} l~n \rightarrow \Gamma', R, ch $}
-\end{bpt} \hspace{1em}
+  \UnaryInfC{$B, \t{open} n~\rightarrow~B[ch \mapsto ((),())], \text{R}, ch $}
+\end{bpt} \\[1em]
 \begin{bpt}
-  \AxiomC{$\Gamma(ch) ...  $}
-  \lab{e-write}
-  \UnaryInfC{$\Gamma, L, \t{write} ch~n \rightarrow \Gamma, R, e $}
-\end{bpt} \\[2em]
-\begin{bpt}
-  \AxiomC{}
+  \AxiomC{$B(ch) = ((n_0,n_1, ...),\vec{n}_o)$}
   \lab{e-read}
-  \UnaryInfC{$\Gamma, L, \t{read} ch \rightarrow \Gamma', R, v $}
+  \UnaryInfC{$B, \t{read} ch~\rightarrow~B[ch \mapsto ((n_1,...),\vec{n}_o)], \text{R}, n_0 $}
 \end{bpt} \hspace{1em}
 \begin{bpt}
-  \AxiomC{}
-  \lab{e-read-block}
-  \UnaryInfC{$\Gamma, L, \t{read} ch \rightarrow \Gamma, B/ch, \t{read} ch $}
+  \AxiomC{$B(ch) = ((),\_)$}
+  \lab{e-read-b}
+  \UnaryInfC{$B, \t{read} ch~\rightarrow~B, \text{B/}ch, \t{read} ch $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$B(ch) = (\vec{n}_i,(..., n_k))$}
+  \lab{e-write}
+  \UnaryInfC{$B, \t{write} ch~n~\rightarrow~B[ch \mapsto (\vec{n}_i,(... n_k, m))], \text{R}, ch $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$B, e \rightarrow B', S', e'$}
+  \lab{s-run}
+  \UnaryInfC{$B, R, e \leadsto B', S', e' $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{$B(ch) = ((),\vec{n}_o)$}
+  \AxiomC{$\text{sync}(ch, \vec{n}_o) = \vec{n}_i$}
+  \lab{s-sync}
+  \BinaryInfC{$B, \text{B/}ch, e \leadsto B[ch \mapsto (\vec{n}_i, ())], R, e $}
 \end{bpt}
+
 \end{center}
-\caption{Operational semantics of the language shown in Figure \ref{fig:lang}.}
+\caption{Operational semantics of a simple language with channels.}
 \label{fig:lang}
 \end{figure*}
+
+\begin{figure*}
+\[ \arraycolsep=1.6pt\def\arraystretch{1.5}
+\begin{array}{rl}
+  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel} \hfill l \in \mathcal{L} : \t{Security label}} \\
+  \multicolumn{2}{l}{
+    B : l \times ch  \mapsto \vec{n} \times \vec{n}~~(\text{Buffers})~~\hfill~~
+    C : ch \mapsto l~~(\text{Channels})~~\hfill~~
+    S = \{ \text{R}, \text{B/}ch, \text{T} \}~~(\text{State}) ~~\hfill~~
+    Q : l \times n \mapsto \vec{ch} ~~(\text{Queue})} \\[1ex]
+  e := & n ~|~ \lambda x.~e ~|~ x ~|~ e ~ e ~|~ e ; e ~| \t{open} l~e ~| \t{read} e ~| \t{write} e~e ~|~ch~~\hfill~~
+    v := n ~|~ \lambda x.~e ~|~ ch \\[1ex]
+    E[\circ] := & \circ ~|~E~e~|~v~E~| \t{open} l~E~| \t{read} E~| \t{write} E~e~| \t{write} v~E~|~E~;~e~|~v~;~E \hfill \Sigma : l \mapsto S \times e~(\text{Threads})
+  \end{array} \\
+\]
+
+\begin{center}
+  (\textsc{e-ctx}, \textsc{e-app}, \textsc{e-seq}, \textsc{e-read}, \textsc{e-read-b} and \textsc{e-write} as in Figure \ref{fig:lang} with $B \hat{=} B(l)$.) \\[1em]
+\begin{bpt}
+  \AxiomC{$l_o \sqsupset l$}
+  \AxiomC{$ch~$ fresh}
+  \lab{e-sme-open-default}
+\BinaryInfC{$B, C, Q, \t{open} l_o~n~\rightarrow_l~B[(l, ch) \mapsto (\bot_{\infty},())], C[ch \mapsto l_o], Q, \text{R}, ch $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$l_o \sqsubseteq l$}
+  \AxiomC{$Q(l, n) = ()$}
+  \AxiomC{$ch~$ fresh}
+  \AxiomC{$Q' = Q[(l', n) \mapsto Q(l',n) \cdot ch)~|~l' \in \mathcal{L}~\wedge~l' \not = l]$}
+  \lab{e-sme-open-new}
+  \QuaternaryInfC{$B, C, Q, \t{open} n~\rightarrow_l~B[(l', ch) \mapsto ((),())~|~l' \in \mathcal{L}], C[ch \mapsto l_o], Q', \text{R}, ch $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$l_o \sqsubseteq l$}
+  \AxiomC{$Q(l, n) = (ch_0, ch_1, ...)$}
+  \lab{e-sme-open-queue}
+  \BinaryInfC{$B, C, Q, \t{open} n~\rightarrow_l~B, C, Q[(l, n) \mapsto (ch_1, ...)], \text{R}, ch_0 $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$\text{sched}(\Sigma) = (l, \text{R}, e)$}
+  \AxiomC{$B, C, Q, e \rightarrow_l B', C', Q', S', e'$}
+  \lab{s-sme-run}
+  \BinaryInfC{$B, C, Q, \Sigma \leadsto_L B', C', Q', \Sigma[l \mapsto (S', e')] $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{$\text{sched}(\Sigma) = (\_, \text{B/}ch, \_)$}
+  \lab{s-sme-idle}
+  \UnaryInfC{$B, C, Q, \Sigma \leadsto_L B, C, Q, \Sigma $}
+\end{bpt} \\[1em]
+$ IO = \{ ch \mapsto \text{sync}(ch, \vec{n}_o) ~|~ C(ch) = l \wedge B(l, ch) = (\_, \vec{n}_o) \} $
+\begin{bpt}
+\AxiomC{$B' = B[(l,ch) \mapsto (\vec{n'}_i, ()) ~|~B(l,ch) = (\vec{n}_i,\_)~\wedge~ \vec{n'}_i = \vec{n}_i \cdot \left \{ \begin{matrix} IO(ch) & C(ch) \sqsubseteq l \\ () & C(ch) \sqsupset l \end{matrix} \right. $}
+  \lab{s-sme-sync}
+  \UnaryInfC{$B, C, Q, \Sigma \leadsto_L B', C, Q, \Sigma[ l \mapsto (\text{R},e) ~|~l \in \mathcal{L}~\wedge~\Sigma(l) = (\text{B/}ch,e) ~\wedge~B'(l, ch) = ((n_0,...),\_)] $}
+\end{bpt}
+
+\end{center}
+\caption{Operational semantics for Secure Multi Execution based on the language in Figure \ref{fig:lang}.}
+\label{fig:sme}
+\end{figure*}
+
 
 \section{Scheduling}
 
@@ -244,6 +323,25 @@ Round-robin scheduling:
   \item If $i$ was skipped at the last scheduling decision for $i$, schedule $v_i$.
   \item Otherwise, skip it, increment $i$ and repeat from step 2.
 \end{enumerate}
+
+\begin{theorem}[Correctness (level)]
+  Evaluating a program in a security level $l$ as part of SME will result in the same observable behavior for channels labelled $l$ as running the program without SME if no channels above $l$ were opened.
+\begin{align*}
+\forall e,~ l.~~&\emptyset, e \rightarrow^{*}_l~C,v ~\wedge~\emptyset,e \rightarrow^{*} C',v'~\wedge  \\
+                & \neg \exists {(l',\_,\_) \in C'} . l' > l ~\Rightarrow \\ & v' = v~\wedge~ ~\{ \vec{n} ~|~ (l, \_, \vec{n}) \in C' \} = \{ \vec{n} ~|~ (l, \_, \vec{n}) \in C \}
+\end{align*}
+\label{th:lvl}
+\end{theorem}
+
+\begin{theorem}[Correctness (all)]
+  Evaluating a program for all security levels program as part of SME will result in the same observable behavior as running the program without SME if .
+\begin{align*}
+\forall e,~ l.~~&\emptyset, e \rightarrow^{*}_L~C,v ~\wedge~\emptyset,e \rightarrow^{*} C',v' ~\Rightarrow \\ & v = v'~\wedge~ ~\{ \vec{n} ~|~ (l, \_, \vec{n}) \in C' \} = \{ \vec{n} ~|~ (l, \_, \vec{n}) \in C \}
+\end{align*}
+\label{th:all}
+\end{theorem}
+
+Theorem \ref{th:all} follows from Theorem \ref{th:lvl}.
 
 \subsection{Timing attacks}
 
