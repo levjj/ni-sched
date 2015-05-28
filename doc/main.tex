@@ -157,61 +157,56 @@ Evaluating this language uses a mapping $\Gamma$ from channel $ch$ to a sequence
 \begin{figure*}
 \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
 \begin{array}{rl}
-  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel}} \\
-  \multicolumn{2}{l}{
-    B : ch  \mapsto \vec{n} \times \vec{n}~~(\text{Buffers})~~~\hfill~~~
-  S = \{ \text{R}, \text{B/}ch, \text{T} \}~~(\text{State})} \\[1ex]
-  e := & n ~|~ \lambda x.~e ~|~ x ~|~ e ~ e ~|~ e ; e ~| \t{open} e ~| \t{read} e ~| \t{write} e~e ~|~ch~~\hfill~~
-    v := n ~|~ \lambda x.~e ~|~ ch \\[1ex]
-  E[\circ] := & \circ ~|~E~e~|~v~E~| \t{open} E~| \t{read} E~| \t{write} E~e~| \t{write} v~E~|~E~;~e~|~v~;~E
+  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel} \hfill C : ch  \mapsto \langle n, \vec{n} \rangle ~~~~\t{Channels}} \\[1ex]
+    e := & v ~|~ x ~|~ e ~ e ~|~ e ; e ~| \t{open} e ~| \t{read} e ~| \t{write} e~e\\
+  v := & n ~|~ \lambda x.~e ~|~ ch \\[1ex]
+  E[\circ] := & \circ ~|~E~e~|~v~E~| \t{open} E~| \t{read} E~| \t{write} E~e~| \t{write} v~E~|~E~;~e~|~v~;~E \\
+  send : & n \times n \mapsto () \hfill recv : n \mapsto () + \vec{n}~~~\t{I/O actions}
   \end{array} \\[1em]
 \]
 \begin{center}
 \begin{bpt}
-  \AxiomC{$B, e~\rightarrow~B', S', e' $}
+  \AxiomC{$C, e~\rightarrow~C', e' $}
   \lab{e-ctx}
-  \UnaryInfC{$B, E[e]~\rightarrow~B, S', E[e'] $}
+  \UnaryInfC{$C, E[e]~\rightarrow~C', E[e'] $}
 \end{bpt} \hspace{1em}
 \begin{bpt}
   \AxiomC{}
   \lab{e-app}
-  \UnaryInfC{$B, (\lambda x. e)~v~\rightarrow~B, \text{R}, e[x \mapsto v] $}
+  \UnaryInfC{$C, (\lambda x. e)~v~\rightarrow~C, e[x \mapsto v] $}
 \end{bpt} \hspace{1em}
 \begin{bpt}
   \AxiomC{}
   \lab{e-seq}
-  \UnaryInfC{$B, v_1~;~v_2~\rightarrow~B, \text{R}, v_2 $}
+  \UnaryInfC{$C, v_1~;~v_2~\rightarrow~C, v_2 $}
 \end{bpt} \\[1em]
 \begin{bpt}
   \AxiomC{$ch~$ fresh}
   \lab{e-open}
-  \UnaryInfC{$B, \t{open} n~\rightarrow~B[ch \mapsto ((),())], \text{R}, ch $}
+  \UnaryInfC{$C, \t{open} n~\rightarrow~C[ch \mapsto \langle n, () \rangle], ch $}
 \end{bpt} \\[1em]
 \begin{bpt}
-  \AxiomC{$B(ch) = ((n_0,n_1, ...),\vec{n}_o)$}
+  \AxiomC{$C(ch) = \langle n, (n_0,n_1, ...)\rangle$}
   \lab{e-read}
-  \UnaryInfC{$B, \t{read} ch~\rightarrow~B[ch \mapsto ((n_1,...),\vec{n}_o)], \text{R}, n_0 $}
+  \UnaryInfC{$C, \t{read} ch~\rightarrow~C[ch \mapsto \langle n, (n_1,...) \rangle], n_0 $}
 \end{bpt} \hspace{1em}
 \begin{bpt}
-  \AxiomC{$B(ch) = ((),\_)$}
-  \lab{e-read-b}
-  \UnaryInfC{$B, \t{read} ch~\rightarrow~B, \text{B/}ch, \t{read} ch $}
+  \AxiomC{$C(ch) = \langle n, () \rangle$}
+  \AxiomC{$recv(n) = \vec{n}$}
+  \lab{e-read-recv}
+  \BinaryInfC{$C, \t{read} ch~\rightarrow~C[ch \mapsto (n,\vec{n})], \t{read} ch $}
 \end{bpt} \\[1em]
 \begin{bpt}
-  \AxiomC{$B(ch) = (\vec{n}_i,(..., n_k))$}
+  \AxiomC{$C(ch) = \langle n, () \rangle$}
+  \AxiomC{$recv(n) = ()$}
+  \lab{e-read-wait}
+  \BinaryInfC{$C, \t{read} ch~\rightarrow~C, \t{read} ch $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{$C(ch) = \langle n, \_ \rangle$}
+  \AxiomC{$send(n,n_o)$}
   \lab{e-write}
-  \UnaryInfC{$B, \t{write} ch~n~\rightarrow~B[ch \mapsto (\vec{n}_i,(... n_k, m))], \text{R}, ch $}
-\end{bpt} \\[1em]
-\begin{bpt}
-  \AxiomC{$B, e \rightarrow B', S', e'$}
-  \lab{s-run}
-  \UnaryInfC{$B, R, e \leadsto B', S', e' $}
-\end{bpt} \hspace{1em}
-\begin{bpt}
-  \AxiomC{$B(ch) = ((),\vec{n}_o)$}
-  \AxiomC{$\text{sync}(ch, \vec{n}_o) = \vec{n}_i$}
-  \lab{s-sync}
-  \BinaryInfC{$B, \text{B/}ch, e \leadsto B[ch \mapsto (\vec{n}_i, ())], R, e $}
+  \BinaryInfC{$C, \t{write} ch~n_o~\rightarrow~C, ch $}
 \end{bpt}
 
 \end{center}
@@ -237,7 +232,7 @@ Evaluating this language uses a mapping $\Gamma$ from channel $ch$ to a sequence
 \begin{center}
   (\textsc{e-ctx}, \textsc{e-app}, \textsc{e-seq}, \textsc{e-read}, \textsc{e-read-b} and \textsc{e-write} as in Figure \ref{fig:lang} with $B \hat{=} B(l)$.) \\[1em]
 \begin{bpt}
-  \AxiomC{$l_o \sqsupset l$}
+  \AxiomC{$l_o \not \sqsubseteq l$}
   \AxiomC{$ch~$ fresh}
   \lab{e-sme-open-default}
 \BinaryInfC{$B, C, Q, \t{open} l_o~n~\rightarrow_l~B[(l, ch) \mapsto (\bot_{\infty},())], C[ch \mapsto l_o], Q, \text{R}, ch $}
