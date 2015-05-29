@@ -214,6 +214,70 @@ Evaluating this language uses a mapping $\Gamma$ from channel $ch$ to a sequence
 \label{fig:lang}
 \end{figure*}
 
+
+
+
+\begin{figure*}
+\[ \arraycolsep=1.6pt\def\arraystretch{1.5}
+\begin{array}{rl}
+  \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel} \hfill l \in \mathcal{L} : \t{Security label}} \\
+  \multicolumn{2}{l}{
+    B : l \mapsto \vec{n} ~~(\text{Buffers})~~\hfill~~
+    C : ch \mapsto n \times l \times B~~(\text{Channels})~~\hfill~~
+    \Sigma : l \mapsto e ~~(\text{Threads})} \\[1ex]
+  e := & ... ~| \t{open} l~e ~| ...~~\hfill~~
+    E[\circ] := ...~| \t{open} l~E~| ~~...~~\hfill~~\rightarrow_l : C,e \times C,e ~~\hfill~~ \leadsto : C, \Sigma, \vec{l} \times C, \Sigma, \vec{l}
+  \end{array} \\
+\]
+
+\begin{center}
+  (\textsc{e-ctx}, \textsc{e-app} and \textsc{e-seq} as in Figure \ref{fig:lang}.) \\[1em]
+
+\begin{bpt}
+  \AxiomC{$ch~$ fresh}
+  \lab{e-open}
+  \UnaryInfC{$C, \t{open} n~\rightarrow~C[ch \mapsto \langle n, () \rangle], ch $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$C(ch) = \langle n, (n_0,n_1, ...)\rangle$}
+  \lab{e-read}
+  \UnaryInfC{$C, \t{read} ch~\rightarrow~C[ch \mapsto \langle n, (n_1,...) \rangle], n_0 $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{$C(ch) = \langle n, () \rangle$}
+  \AxiomC{$recv(n) = \vec{n}$}
+  \lab{e-read-recv}
+  \BinaryInfC{$C, \t{read} ch~\rightarrow~C[ch \mapsto (n,\vec{n})], \t{read} ch $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$C(ch) = \langle n, () \rangle$}
+  \AxiomC{$recv(n) = ()$}
+  \lab{e-read-wait}
+  \BinaryInfC{$C, \t{read} ch~\rightarrow~C, \t{read} ch $}
+\end{bpt} \hspace{1em}
+\begin{bpt}
+  \AxiomC{$C(ch) = \langle n, \_ \rangle$}
+  \AxiomC{$l = l_c$}
+  \AxiomC{$send(n,n_o)$}
+  \lab{e-write}
+  \TrinaryInfC{$C, \t{write} ch~n_o~\rightarrow_l~C, ch $}
+\end{bpt}
+\begin{bpt}
+  \AxiomC{$C(ch) = \langle n, \_ \rangle$}
+  \AxiomC{$l \not = l_c$}
+  \lab{e-write-suppress}
+  \BinaryInfC{$C, \t{write} ch~n_o~\rightarrow~C, ch $}
+\end{bpt}
+
+\end{center}
+\caption{Operational semantics for Secure Multi Execution with channels and simple round-robin scheduling based on the language in Figure \ref{fig:lang}.}
+\label{fig:sme-rr}
+\end{figure*}
+
+
+
+
+
 \begin{figure*}
 \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
 \begin{array}{rl}
