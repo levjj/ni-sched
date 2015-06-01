@@ -237,17 +237,17 @@ Additionally, there are now two different evaluation relations.  The single thre
   \BinaryInfC{$B, \t{read} l_c~n_c \rightarrow_l B[(l, n_c) \mapsto (n_1,...)], n_0 $}
 \end{bpt} \\[1em]
 \begin{bpt}
-  \AxiomC{$l \not \sqsubseteq l_c$}
+  \AxiomC{$l \not = l_c$}
   \lab{e-write-suppress}
-  \UnaryInfC{$B, \t{write} l_c~n_c~n_o~\rightarrow~B, n_c $}
+  \UnaryInfC{$B, \t{write} l_c~n_c~n_o~\rightarrow_l~B, n_c $}
 \end{bpt} \\[1em]
 \begin{bpt}
   \alwaysNoLine
-  \AxiomC{$l \sqsubseteq l_c$}
-  \UnaryInfC{$B' = B[(l', n_c) \mapsto B(l',n_c) \cdot n_0~|~l' \in \mathcal{L}]$}
+  \AxiomC{$l = l_c$}
+  \UnaryInfC{$B' = B[(l', n_c) \mapsto B(l',n_c) \cdot n_0~|~l \sqsubseteq l' \in \mathcal{L}]$}
   \alwaysSingleLine
   \lab{e-write}
-  \UnaryInfC{$B, \t{write} l_c~n_c~n~\rightarrow~B', n_c $}
+  \UnaryInfC{$B, \t{write} l_c~n_c~n~\rightarrow_l~B', n_c $}
 \end{bpt} \\[1em]
 \begin{bpt}
   \AxiomC{$\Sigma(l) = e$}
@@ -276,7 +276,15 @@ At each step $\leadsto$ the scheduling order $\vec{l}$ will be rotated which cor
 With SME, only threads running with label $l$ can produce output to $l$-labeled channels.  Therefore, it is sufficient to prove that a thread running with label $l$ cannot be influenced by any information labeled $l' \not \sqsubseteq l$ to prove that the resulting system prevents leaks of information to unauthorized channels.
 
 To prove this kind of non-interference, we define an equivalence  $\approx_l$ of execution configurations $B,\Sigma,\vec{l}$ which only differ in information unauthorized for $l$.  In contrast to other dynamic information flow strategies, each thread in secure multi execution operates on its own program which never includes unauthorized sub-programs.  Additionally, we restrict buffers in a way that buffers accessible to $l$ include no information private to $l$ and the scheduling order $\vec{l}$ is assumed to be public.
-\[ B_1,\Sigma_1, \vec{l} \approx_l B_2,\Sigma_2, \vec{l}~\hat{=}~ \Sigma_1(l) = \Sigma_2(l) \wedge B_1(l) = B_2(l) \]
+\[ B_1,\Sigma_1, \vec{l} \approx_l B_2,\Sigma_2, \vec{l}~\hat{=}~ \epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) \wedge \epsilon_l(B_1) = \epsilon_l(B_2) \]
+
+Here, the erasure function $\epsilon_{l}$ removes higher-level threads and buffers from $\Sigma$ and $B$ which are not allowed to flow into $l$:
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{lr}
+  \epsilon_{l}(\Sigma) = [ l_e \mapsto \Sigma(l_e) ~|~ l_e \in dom(\Sigma) \wedge l_e \sqsubseteq l ] \\
+  \epsilon_{l}(B) = [ (l_c, n_c) \mapsto B(l_c, n_c) ~|~ (l_c, n_c) \in dom(B) \wedge l_c \sqsubseteq l ]
+\end{array} \]
+
 As a first step, we need to show that a single step of execution for two $l$-equivalent configurations cannot depend on information above $l$.
 
 \begin{theorem}[Termination-sensitive non-interference]
@@ -289,47 +297,136 @@ As a first step, we need to show that a single step of execution for two $l$-equ
 
 \begin{proof}
   Assuming $B_1,\Sigma_1, \vec{l_1} \approx_l B_2,\Sigma_2, \vec{l_2}$, it follows that
-  \[ B_1(l) = B_2(l)~\wedge~\Sigma_1(l) = \Sigma_2(l) ~\wedge~ \vec{l_1} = \vec{l_2}\]
+  \[ \epsilon_l(B_1) = \epsilon_l(B_2)~\wedge~\epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) ~\wedge~ \vec{l_1} = \vec{l_2}\]
   with the same scheduled label $l_e$.
   \[ \vec{l_1} = (l_e, ...) = \vec{l_2} \]
 
-  \noindent The step $\leadsto$ done by $B_1,\Sigma_1$ is either \textsc{s-step} or \textsc{s-idle}.
-
-  \textbf{(Case} \textsc{s-step}\textbf{)}
-
-  Regarding the executing threads $\Sigma$, a step of evaluation with \textsc{s-step} updates the program of the corresponding label $l_e$.
-\[ \Sigma'_1 = \Sigma_1[l_e \mapsto e_1'] ~\wedge~\Sigma'_2 = \Sigma_2[l_e \mapsto e_2'] \]
   For arbitrary labels $l$ and $l_e$, we can distinguish two different cases:
 
-  (Case $l_e \not = l$) If $l_e$ is a different level than $l$, execution $\rightarrow_{l_e}$ manipulates a different subprogram $\Sigma(l_e)$, so
+  \textbf{(Case 1: $l_e \not \sqsubseteq l$)}
+  
+  \noindent A step $\leadsto$ by an arbitrary configuration $B,\Sigma$ uses either the rule \textsc{s-step} or \textsc{s-idle}.
+
+  (Case 1.a \textsc{s-idle}) In this case, the configuration did not change except for a rotation of schedule $\vec{l}$.  In particular, $B = B' ~\wedge~ \Sigma = \Sigma'$, which implies
+  \[ B,\Sigma, \vec{l'} \approx_l B', \Sigma', \vec{l'} \]
+
+  (Case 1.b \textsc{s-step}) Regarding the executing threads $\Sigma$, a step of evaluation with \textsc{s-step} only updates the program of the corresponding label $l_e$.
+\[ \Sigma' = \Sigma[l_e \mapsto e'] \]
+
+If $l_e$ is a higher than $l$, execution $\rightarrow_{l_e}$ manipulates a subprogram $\Sigma(l_e)$ which is not part of $\epsilon_l(\Sigma)$, so
 \begin{align*}
-  && \Sigma'_1(l) = \Sigma_1(l)&~\wedge~\Sigma'_2(l) = \Sigma_2(l) & (l_e \not = l) \\
-  \Rightarrow && \Sigma'_1(l) = \Sigma_1(l)& = \Sigma_2(l) = \Sigma'_2(l) & (\Sigma_1(l) = \Sigma_2(l)) \\
-  \Rightarrow && \Sigma'_1 & \approx_l \Sigma'_2
+  & \epsilon_l(\Sigma') = \epsilon_l(\Sigma[l_e \mapsto e']) = \epsilon_l(\Sigma) & (l_e \not \sqsubseteq l)
 \end{align*}
-  (Case $l_e = l$) If the execution operates on level $l_e = l$, the executing program $e$ will be identical for both $\Sigma_1$ and $\Sigma_2$:
 
-  \[ \Sigma_1(l) = \Sigma_1(l_e) = e = \Sigma_2(l_e) = \Sigma_2(l) \]
+Regarding the buffers $B$, a step of evaluation with \textsc{s-step} only changes buffers with the \textsc{e-read} and the \textsc{e-write} rule.
 
-  The evaluation rules are non-overlapping except for two possible pairs:
+The \textsc{e-read} rule only manipulates a buffer $B(l_e,n_c)$ which is not part of $\epsilon_l(B)$, so
+\begin{align*}
+  & \epsilon_l(B') = \epsilon_l(B[(l_e,n_c) \mapsto ...]) = \epsilon_l(B) & (l_e \not \sqsubseteq l)
+\end{align*}
 
+Additionally, the \textsc{e-write} rule only manipulates buffers $B(l',n_c)$ with $l_e \sqsubseteq l'$.
+\begin{align*}
+ ~&~ l' \sqsupseteq l_e \not \sqsubseteq l~~\Rightarrow~~l' \sqsupseteq l_e \sqsupset l ~~
+  \Rightarrow~~ l' \sqsupset l&\Rightarrow~ l' \not \sqsubseteq l \\
+\Rightarrow~&~ \epsilon_l(B') = \epsilon_l(B[l' \mapsto ...]) = \epsilon_l(B) & (l' \not \sqsubseteq l)
+\end{align*}
+
+Both of these cases work for both configurations $B_1, \Sigma_1$ and $B_2, \Sigma_2$ and the updated schedule $\vec{l'}$ will always be rotated by one independent of whether \textsc{s-idle} or \textsc{s-step} was used in each case.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{c}
+  \epsilon_l(B'_1) = \epsilon_l(B_1) = \epsilon_l(B_2) = \epsilon_l(B'_2)\\
+  \wedge~\epsilon_l(\Sigma'_1) = \epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) = \epsilon_l(\Sigma'_2) ~\wedge~\vec{l'_1} = \vec{l'_2} \\
+  \Rightarrow~B'_1,\Sigma'_1, \vec{l'_1} \approx_l B'_2,\Sigma'_2, \vec{l'_2}
+\end{array} \]
+
+\textbf{(Case 2: $l_e \sqsubseteq l$)} If the execution operates on level $l_e \sqsubseteq l$, the scheduled program $e$ will be identical for both $\Sigma_1$ and $\Sigma_2$ due to $l$-equivalence $\Sigma_1 \approx_l \Sigma_2$:
+\[ \epsilon_l(\Sigma_1)(l_e) = \Sigma_1(l_e) = e = \Sigma_2(l_e) = \epsilon_l(\Sigma_2)(l_e) \]
+
+A step $\leadsto$ by configuration $B_1,\Sigma_1$ uses either the rule \textsc{s-step} or \textsc{s-idle}.
+
+(Case 2.a \textsc{s-idle}) In this case, we know that $e$ with buffers $B_1$ was not able to step: $B_1,e \not \rightarrow_{l_e}$.
+
+  There are two possible reasons for not stepping.  Either the program terminated, i.e. $e=v$ which implies that the configuration $B_2,e$ cannot step either; or $e$ is a blocking read $e = E[\text{read}~l_c~n_c]$ with buffer $B_1(l_e, n_c) = ()$.  Due to $l$-equivalence, the same has to be true for $B_2$:
+  \[ B_1(l_e,n_c) = \epsilon_l(B_1)(l_e,n_c) = \epsilon_l(B_2)(l_e,n_c) = B_2(l_e,n_c) \]
+
+  Since both configurations used rule \textsc{s-idle}, the configurations did not change except for a rotation of schedule $\vec{l}$.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{c}
+  B_1 = B'_1 ~\wedge~ \Sigma_1 = \Sigma'_1~\wedge~B_2 = B'_2 ~\wedge~ \Sigma_2 = \Sigma'_2 \\
+  \Rightarrow \epsilon_l(B'_1) = \epsilon_l(B_1) = \epsilon_l(B_2) = \epsilon_l(B'_2)\\
+  \wedge~\epsilon_l(\Sigma'_1) = \epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) = \epsilon_l(\Sigma'_2) ~\wedge~\vec{l'_1} = \vec{l'_2} \\
+  \Rightarrow~B'_1,\Sigma'_1, \vec{l'_1} \approx_l B'_2,\Sigma'_2, \vec{l'_2}
+\end{array} \]
+
+(Case 2.b \textsc{s-step}) The evaluation rules are non-overlapping except for two possible pairs:
   \begin{itemize}
-\item (Case \textsc{e-read} and \textsc{e-read-default}) For the term ``read $l_c~n_c$'', $l_c$ will be the same in both $\Sigma_1$ and $\Sigma_2$, so $\l_c \sqsubseteq l$ will be identical for both $\Sigma_1$ and $\Sigma_2$.
-\item (Case \textsc{e-write} and \textsc{e-read-write}) For the term ``write $l_c~n_c~n$'', $l_c$ will be the same in both $\Sigma_1$ and $\Sigma_2$, so $\l \sqsubseteq l_c$ will be identical for both $\Sigma_1$ and $\Sigma_2$.
-
+\item (Rules \textsc{e-read} and \textsc{e-read-default}) For the term ``read $l_c~n_c$'', the label $l_c$ is part of $e$ and will be the same in both $\Sigma_1$ and $\Sigma_2$, so $\l_c \sqsubseteq l$ will evaluate identically for both configurations regardless of buffers.
+\item (Rules \textsc{e-write} and \textsc{e-read-write}) Similarly, for the term ``write $l_c~n_c~n$'', the label $l_c$ is part of the program $e$, so $\l \sqsubseteq l_c$ will evaluate identically for both configurations.
   \end{itemize}
-  Therefore, the step taken by $B_1, \Sigma_1$ has to use the same rule as the step taken by $B_2, \Sigma_2$.
+
+  As the step taken by $\rightarrow_l$ is unique for $e$ and $l$, the two configurations $B_1,e$ and $B_2,e$ have to use the same rule.
+
+  In case the configurations steps with either \textsc{e-app}, \textsc{e-seq}, \textsc{e-read-default} or \textsc{e-write-suppress}, the content of the buffers $B_1$ and $B_2$ is irrelevant and remains unchanged.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{c}
+  B_1 = B'_1 ~\wedge~ B_2 = B'_2 \\
+  \Rightarrow~\epsilon_l(B'_1) = \epsilon_l(B_1) = \epsilon_l(B_2) = \epsilon_l(B'_2)
+\end{array} \]
+  Additionally, both configurations update to the same resulting program $e'$.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{c}
+  \epsilon_l(\Sigma'_1) = \epsilon_l(\Sigma_1)[l_e \mapsto e'] = \epsilon_l(\Sigma_2)[l_e \mapsto e'] = \epsilon_l(\Sigma'_2) \\
+  \wedge~\epsilon_l(B'_1) = \epsilon_l(B'_2) \\
+  \Rightarrow~B'_1,\Sigma'_1, \vec{l'_1} \approx_l B'_2,\Sigma'_2, \vec{l'_2} \\
+\end{array} \]
+
+In case the configurations steps with \textsc{e-read} on a program $e=E[\text{read}~l_c~n_c]$, both buffers $B_1$ and $B_2$ are changed identically.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{rrl}
+  & \epsilon_l(B_1) &= \epsilon_l(B_2) \\
+  \Rightarrow & \epsilon_l(B_1)(l_e,n_c) &= \epsilon_l(B_2)(l_e,n_c) \\
+  \Rightarrow &  B_1(l_e,n_c) &= B_2(l_e,n_c)~~~~~~~~~~~~~~~~(l_e \sqsubseteq l) \\
+  \Rightarrow & \text{head}(B_1(l_e,n_c)) &= \text{head} (B_2(l_e,n_c)) \\
+  \wedge & \text{tail}(B_1(l_e,n_c)) &= \text{tail} (B_2(l_e,n_c))
+\end{array} \]
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{rl}
+  \epsilon_l(B'_1) & = \epsilon_l(B_1)[(l_e,n_c) \mapsto \text{tail} (B_1(l_e,n_c))] \\
+                   & = \epsilon_l(B_2)[(l_e,n_c) \mapsto \text{tail} (B_2(l_e,n_c))] = \epsilon_l(B'_2) \\
+\end{array} \]
+  Additionally, the resulting term $e'$ will be identical.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{rl}
+  \epsilon_l(\Sigma'_1) & = \epsilon_l(\Sigma_1)[l_e \mapsto \text{head}(B_1(l_e,n_c))]  \\
+                        & = \epsilon_l(\Sigma_2)[l_e \mapsto \text{head}(B_2(l_e,n_c))] = \epsilon_l(\Sigma'_2)
+\end{array} \]
+
+In case the configurations steps with \textsc{e-write} on a program $e=E[\text{write}~l_c~n_c~n]$, both buffers $B_1$ and $B_2$ are changed identically.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{rrlr}
+  &~~\epsilon_l(B_1) =& \epsilon_l(B_2) \\
+  \Rightarrow \forall l' \subseteq l.&~~\epsilon_l(B_1)(l',n_c) =& \epsilon_l(B_2)(l',n_c) \\
+  \Rightarrow \forall l' \subseteq l_e.&~~\epsilon_l(B_1)(l',n_c) =& \epsilon_l(B_2)(l',n_c) & ~~~~~~(l_e \sqsubseteq l)
+\end{array} \]
 
 
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{rl}
+  \epsilon_l(B'_1) & = \epsilon_l(B_1)[(l',n_c) \mapsto B_1(l',n_c) \cdot n~|~ l' \sqsubseteq l_e ] \\
+                   & = \epsilon_l(B_2)[(l',n_c) \mapsto B_2(l',n_c) \cdot n~|~ l' \sqsubseteq l_e ] = \epsilon_l(B'_2) \\
+\end{array} \]
+  Additionally, the resulting term $e'$ will be identical.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{c}
+  \epsilon_l(\Sigma'_1) = \epsilon_l(\Sigma_1)[l_e \mapsto n_c] = \epsilon_l(\Sigma_2)[l_e \mapsto n_c] = \epsilon_l(\Sigma'_2)
+\end{array} \]
 
-Regarding the buffers
-
-  \begin{enumerate}
-    \item ($l_e \not \sqsubseteq l$) 
-    \item ($l_e = l$) If the execution $l_e$ operates on a higher level than $l$, 
-    \item ($l_e \not \sqsupseteq l$) If the execution $l_e$ operates on a higher level than $l$, 
-  \end{enumerate}
-
+To conclude, two configurations $B_1, \Sigma_1, \vec{l_1}$ and $B_2, \Sigma_2, \vec{l_2}$ which are $l$-equivalent will preserve $l-equivalence$ for any possible combination of steps taken either by executing a thread or waiting for a blocked scheduled thread.  Additionally, this non-interference is termination-sensitive as even a terminating thread will still be scheduled and therefore not leaks any information about its termination.
+\begin{align*}
+  B_1,\Sigma_1, \vec{l_1} \leadsto B'_1,\Sigma'_1, \vec{l'_1} ~\wedge~B_2,\Sigma_2,\vec{l_2} \leadsto B'_2,\Sigma'_2, \vec{l'_2} \\
+  \Rightarrow B'_1,\Sigma'_1, \vec{l'_1} \approx_l B'_2,\Sigma'_2, \vec{l'_2}
+\end{align*}
 
 
 % \begin{theorem}[Termination-sensitive non-interference]
@@ -344,19 +441,19 @@ Regarding the buffers
 %   to do
 % \end{proof}
 
-If the environment modifies $l$'s buffers, this has to be trusted.  Therefore, $l$-equivalence simply selects 
+% If the environment modifies $l$'s buffers, this has to be trusted.  Therefore, $l$-equivalence simply selects 
 
-  \textbf{(Case} \textsc{s-idle}\textbf{)}
+%   \textbf{(Case} \textsc{s-idle}\textbf{)}
 
-We previously established that a step with rule \textsc{s-step} by $B_1, \Sigma_1, \vec{l_1}$ implies a step \textsc{s-step} by $B_2, \Sigma_2, \vec{l_2}$.  The same arguments holds for vice versa, which implies that either both configurations step with \textsc{s-step} or both step with \textsc{s-idle}.
+% We previously established that a step with rule \textsc{s-step} by $B_1, \Sigma_1, \vec{l_1}$ implies a step \textsc{s-step} by $B_2, \Sigma_2, \vec{l_2}$.  The same arguments holds for vice versa, which implies that either both configurations step with \textsc{s-step} or both step with \textsc{s-idle}.
 
-If both step with \textsc{s-idle}, then
-\[ \arraycolsep=1.6pt\def\arraystretch{1.5}
-\begin{array}{rc}
-  & B_1' = B_1 ~\wedge~\Sigma'_1 = \Sigma_1 ~\wedge~\vec{l'_1} = (l_{ee}, ..., l_e) \\
-  \wedge & B_2' = B_2 ~\wedge~\Sigma'_2 = \Sigma_2 ~\wedge~\vec{l'_2} = (l_{ee}, ..., l_e) \\
-  \Rightarrow & B'_1,\Sigma'_1, \vec{l'_1} \approx_l B'_2,\Sigma'_2, \vec{l'_2}
-\end{array} \]
+% If both step with \textsc{s-idle}, then
+% \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
+% \begin{array}{rc}
+%   & B_1' = B_1 ~\wedge~\Sigma'_1 = \Sigma_1 ~\wedge~\vec{l'_1} = (l_{ee}, ..., l_e) \\
+%   \wedge & B_2' = B_2 ~\wedge~\Sigma'_2 = \Sigma_2 ~\wedge~\vec{l'_2} = (l_{ee}, ..., l_e) \\
+%   \Rightarrow & B'_1,\Sigma'_1, \vec{l'_1} \approx_l B'_2,\Sigma'_2, \vec{l'_2}
+% \end{array} \]
 \end{proof}
 
 
@@ -380,32 +477,91 @@ If both step with \textsc{s-idle}, then
 
 % \[ \epsilon_{l}(B) = \{ (l_c,n,\vec{n'}) | (l_c,n,\vec{n}) \} \]
 
-\subsection{Timing-sensitive noninterference}
-
-
-
-
 \subsection{Default values on read}
 
 It is important to note that the proof of non-interference does not depend on suppressing reads by returning default values.  Another design alternative would not check for the label for reads and omit label annotations for reads entirely.  Due to the checks of the write operation, this would still have the non-interference security property.  However, this causes low execution threads to always block on ``high'' reads and wait for a low value that can be read.
 
 In a way, annotating all reads with labels and returning default values if the label check fails, corresponds to \emph{clearance} which protects not only against unauthorized writes but also against a dependency on reads.
 
+\subsection{Timing-sensitive noninterference}
 
-\newpage
-~
-\newpage
-~
-\newpage
-~
-\newpage
-~
-\newpage
+By adding time as a public observable variable $\delta$ to configurations of the evaluation relation $\leadsto$, we can formally define timing-sensitive non-interference.
 
-\section{First-class channels}
+\begin{theorem}[Timing-sensitive non-interference]
+  For all labels $l$, $l_e \in \mathcal{L}$, $l$-equivalent configurations $B_1,e_1,\delta_1 \approx_l B_2,e_2,\delta_2$ a step of execution $\leadsto$ should preserve $l$-equivalence.
+  \begin{align*}
+    B_1,\Sigma_1, \vec{l_1}, \delta_1 \leadsto B'_1,\Sigma'_1, \vec{l'_1}, \delta'_1  \wedge B_2,\Sigma_2,\vec{l_2}, \delta_2 \leadsto B'_2,\Sigma'_2, \vec{l'_2}, \delta'_2 \\
+    \Rightarrow B'_1,\Sigma'_1, \vec{l'_1}, \delta'_1 \approx_l B'_2,\Sigma'_2, \vec{l'_2}, \delta'_2
+  \end{align*}
+\end{theorem}
 
+In order to protect the secure multi execution language against timing attacks, the two steps taken by the scheduler \textsc{s-step} and \textsc{s-idle} have to be restricted to take the exact same amount of time.  This can be done by using a fixed time budget for each step which will be be used for executing threads and for waiting.  The updated semantics are shown in Figure \ref{fig:sme-time}.
 
 \begin{figure}
+\begin{center}
+\begin{bpt}
+  \AxiomC{$\Sigma(l) = e$}
+  \AxiomC{$B, e \rightarrow_l B', e'$}
+  \lab{s-step}
+  \BinaryInfC{$B, \Sigma, (l, l', ...), \delta \leadsto B', \Sigma[l \mapsto e'], (l', ...~, l), \delta + 1 $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$\Sigma(l) = e$}
+  \AxiomC{$B, e \not \rightarrow_l$}
+  \lab{s-idle}
+  \BinaryInfC{$B, \Sigma, (l, l', ...), \delta \leadsto B, \Sigma, (l', ...~, l), \delta + 1$}
+\end{bpt}
+\end{center}
+\caption{Adding explicit timing ($\delta \in \mathcal{N}$) to the semantics in Figure \ref{fig:io-sme}).}
+\label{fig:sme-time}
+\end{figure}
+
+\begin{proof}
+  Assuming $B_1,\Sigma_1, \vec{l_1} \approx_l B_2,\Sigma_2, \vec{l_2}$, it follows that
+  \[ \epsilon_l(B_1) = \epsilon_l(B_2)~\wedge~\epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) ~\wedge~ \vec{l_1} = \vec{l_2}\]
+  with the same scheduled label $l_e$.
+  \[ \vec{l_1} = (l_e, ...) = \vec{l_2} \]
+
+\end{proof}
+
+\section{Time donation}
+\label{s:donate}
+
+Time donation is really important.
+
+\begin{figure*}
+\begin{center}
+\begin{bpt}
+  \AxiomC{$\Sigma(l) = e$}
+  \AxiomC{$C, e \not \rightarrow_l$}
+  \AxiomC{$l \not \sqsubseteq l_d$}
+  \AxiomC{$C, \Sigma(l_d) \rightarrow_{l_d} C', e'$}
+  \lab{s-donate}
+  \QuaternaryInfC{$C, \Sigma, (l, l', ...) , \Sigma \leadsto C', \Sigma[l_d \mapsto e'], (l', ...~, l) $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$\Sigma(l) = e$}
+  \AxiomC{$C, e \not \rightarrow_l$}
+  \AxiomC{$\forall l_d \in \mathcal{L}.~~l \sqsubseteq l_d ~\vee C, \Sigma(l_d) \not \rightarrow_{l_d}$}
+  \lab{s-idle}
+  \TrinaryInfC{$C, \Sigma, (l, l', ...) , \Sigma \leadsto C, \Sigma, (l', ...~, l) $}
+\end{bpt}
+\end{center}
+\caption{Blocked/terminated threads can donate their time to higher-level threads (replaces $\textsc{s-idle}$ in Figure \ref{fig:sme}).}
+\label{fig:sme-donate}
+\end{figure*}
+
+\section{Extension: first-class channels}
+
+In order to minimize the number of labels appearing throughout programs, it might be preferable to move labels to explicit ``open'' calls that return a channel given a label and name.  Reads and writes will then operate on channels and do not require label annotations.
+
+Figure \ref{fig:ch} shows a non-secure language extended with first-class channels.
+
+Figure \ref{fig:ch-sme} shows an operational semantics for secure multi execution with round robin scheduling comparable with the one in Figure \ref{fig:io-sme} but with first-class channels.
+
+Unfortunately, a proof of timing-sensitive non-interference is not given in this paper due to timing constraints.  There are interesting subtleties involved in correctly specifying semantics such that buffers do not include mixed output.
+
+\begin{figure*}
 \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
 \begin{array}{rl}
   \multicolumn{2}{l}{x : \t{Identifier} \hfill n : \t{Literal} \hfill ch : \t{Channel} \hfill C : ch  \mapsto \langle n, \vec{n} \rangle ~~~~\t{Channels}} \\[1ex]
@@ -457,15 +613,12 @@ In a way, annotating all reads with labels and returning default values if the l
 \end{center}
 \caption{Operational semantics of a simple language with channels.}
 \label{fig:ch}
-\end{figure}
+\end{figure*}
+
+% \subsection{Secure multi execution}
 
 
-
-
-\subsection{Secure multi execution}
-
-
-Given a fixed set of security labels $\mathcal{L}$, secure multi execution involves evaluating the program once for each label $l$.  Additionally, each channel is opened with a fixed security label $l_c$.  The extended formalism and operational semantics based on the lambda calculus in Figure \ref{fig:lang}  is shown in Figure \ref{fig:sme}.
+% Given a fixed set of security labels $\mathcal{L}$, secure multi execution involves evaluating the program once for each label $l$.  Additionally, each channel is opened with a fixed security label $l_c$.  The extended formalism and operational semantics based on the lambda calculus in Figure \ref{fig:lang}  is shown in Figure \ref{fig:sme}.
 
 \begin{figure*}
 \[ \arraycolsep=1.6pt\def\arraystretch{1.5}
@@ -481,7 +634,7 @@ Given a fixed set of security labels $\mathcal{L}$, secure multi execution invol
 \]
 
 \begin{center}
-  (Rules \textsc{e-ctx}, \textsc{e-app} and \textsc{e-seq} for $\rightarrow_l$ as in Figure \ref{fig:lang}.) \\[1em]
+  (Rules \textsc{e-ctx}, \textsc{e-app} and \textsc{e-seq} for $\rightarrow_l$ as in Figure \ref{fig:ch}.) \\[1em]
 
 \begin{bpt}
   \AxiomC{$ch~$ fresh}
@@ -542,39 +695,14 @@ Given a fixed set of security labels $\mathcal{L}$, secure multi execution invol
 \end{bpt}
 
 \end{center}
-\caption{Secure Multi Execution with round-robin scheduling and donation based on the language in Figure \ref{fig:lang}.}
+\caption{Secure Multi Execution with round-robin scheduling and donation based on the language in Figure \ref{fig:ch}.}
 \label{fig:ch-sme}
 \end{figure*}
 
-In contrast to the simple lambda calculus, channels in the environment ($C$) now have one buffer per label ($B$).  Additionally, there are now two different evaluation relations.  The single thread evaluation $\rightarrow_l$ performs one step of evaluation of $e$ with channels $C$ under the label $l$.  The overall evaluation $\leadsto$ has channels $C$, one program/term per label $\Sigma$ and a list of labels $\vec{l}$.
+% In contrast to the simple lambda calculus, channels in the environment ($C$) now have one buffer per label ($B$).  Additionally, there are now two different evaluation relations.  The single thread evaluation $\rightarrow_l$ performs one step of evaluation of $e$ with channels $C$ under the label $l$.  The overall evaluation $\leadsto$ has channels $C$, one program/term per label $\Sigma$ and a list of labels $\vec{l}$.
 
 
 % Evaluating this language uses a mapping $\Gamma$ from channel $ch$ to a sequence $\vec{n}$ of primitive values, e.g. byte or strings.  A single thread of execution can be either ready $R$, blocked on a channel $B/ch$ or terminated $T$.  While $\rightarrow$ denotes a step of evaluation of a single thread, $\Rightarrow$ is a transition of a system of threads, one for each security label $l$ with specific scheduling.  The complete operational semantics are shown in Figure \ref{fig:lang}.
-
-
-\section{Time donation}
-
-\begin{figure*}
-\begin{center}
-\begin{bpt}
-  \AxiomC{$\Sigma(l) = e$}
-  \AxiomC{$C, e \not \rightarrow_l$}
-  \AxiomC{$l \not \sqsubseteq l_d$}
-  \AxiomC{$C, \Sigma(l_d) \rightarrow_{l_d} C', e'$}
-  \lab{s-donate}
-  \QuaternaryInfC{$C, \Sigma, (l, l', ...) , \Sigma \leadsto C', \Sigma[l_d \mapsto e'], (l', ...~, l) $}
-\end{bpt} \\[1em]
-\begin{bpt}
-  \AxiomC{$\Sigma(l) = e$}
-  \AxiomC{$C, e \not \rightarrow_l$}
-  \AxiomC{$\forall l_d \in \mathcal{L}.~~l \sqsubseteq l_d ~\vee C, \Sigma(l_d) \not \rightarrow_{l_d}$}
-  \lab{s-idle}
-  \TrinaryInfC{$C, \Sigma, (l, l', ...) , \Sigma \leadsto C, \Sigma, (l', ...~, l) $}
-\end{bpt}
-\end{center}
-\caption{Blocked/terminated threads can donate their time to higher-level threads (replaces $\textsc{s-idle}$ in Figure \ref{fig:sme}).}
-\label{fig:sme-donate}
-\end{figure*}
 
 
 
@@ -642,33 +770,33 @@ In contrast to the simple lambda calculus, channels in the environment ($C$) now
 % \end{figure*}
 
 
-\section{Scheduling}
+\section{Extension: Dynamic labels}
 
-Scheduling to prevent time-sensitive non-interference *and* starvation between comparable and non-comparable threads.
+The scheduling strategy presented in section 2 assumes a fixes set of labels $\mathcal{L}$ which is known in advance.  In case new security labels can be created dynamically from an infinite set of possible values, it is necessary to change the scheduling to dynamically allocate time according to threads with currently active labels.
 
-Scheduling vector $v$ with slots $i=1 \ldots \infty$.  Scheduling probability $p(i) = 2^{-i}$ with $\sum_i p(i) = 1$.
+Due to timing constraints, the formalism for the scheduling with dynamic labels and a proof of timing-sensitive non-interference is not given in this paper.  However, the following sketch of the algorithm might serve as guide for a scheduling algorithm with timing-sensitive non-interference and protection against starvation between comparable and non-comparable threads.
 
-When thread $t$ changes from Ready to Blocked,
+\subsection{Scheduling with a vector}
 
-\begin{itemize}
-  \item swap schedule position of $t$ with thread $t'$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
-\end{itemize}
+Assuming a scheduling vector $v$ with slots $i=1 \ldots \infty$, the scheduling probability $p(i)$ is $2^{-i}$ with $\sum_i p(i) = 1$.  The following figure illustrate a scheduling vector with three labels $l_1$, $l_2$ and $l_3$: \\[1ex]
 
-When thread $t$ changes from Blocked to Ready or gets created.
+\begin{tikzpicture}[->,node distance=6em]
+  \node[state] (l1) {$l_1$};
+  \node (s) [xshift=-3em] {};
+  \node[state] (l2) [right of=l1] {$l_2$};
+  \node[state] (l3) [right of=l2] {$l_3$};
+  \node[thick,state] (idle) [right of=l3] {$idle$};
 
-\begin{itemize}
-  \item if newly created, add $t$ add the end of $v$;
-  \item swap schedule position of $t$ with thread $t'$ with $l_{t} \sqsubseteq l_{t'}$ and $t'$ is the first such thread.
-\end{itemize}
+  \path (s) edge node {} (l1)
+        (l1) edge [loop above] node {$p=\sfrac{1}{2}$} (l1)
+        (l1) edge node[above] {$p=\sfrac{1}{2}$} (l2)
+        (l2) edge [loop above] node {$p=\sfrac{1}{2}$} (l2)
+        (l2) edge node[above] {$p=\sfrac{1}{2}$} (l3)
+        (l3) edge [loop above] node {$p=\sfrac{1}{2}$} (l3)
+        (l3) edge node[above] {$p=\sfrac{1}{2}$} (idle);
+\end{tikzpicture} \\[1ex]
 
-When thread $t$ terminates.
-
-\begin{itemize}
-  \item if $t$ was last non-terminated thread at this level in the lattice, just remove it from $v$;
-  \item otherwise, assign $t'$ to the slot of $t$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
-\end{itemize}
-
-Randomized scheduling:
+In randomized scheduling, the weights of each element of the vector corresponds with random probabilities $p(i)$.
 
 \begin{enumerate}
   \item Initialize $i$ with 1.
@@ -677,7 +805,7 @@ Randomized scheduling:
   \item Otherwise, increment $i$ and repeat from step 2.
 \end{enumerate}
 
-Round-robin scheduling:
+In round-robin scheduling, the weights of each element are used to divide time into arbitrarily many slices and schedule each of these with the frequency $p(i)$.
 
 \begin{enumerate}
   \item Initialize $i$ with 1.
@@ -686,26 +814,50 @@ Round-robin scheduling:
   \item Otherwise, skip it, increment $i$ and repeat from step 2.
 \end{enumerate}
 
-\begin{theorem}[Correctness (level)]
-  Evaluating a program in a security level $l$ as part of SME will result in the same observable behavior for channels labeled $l$ as running the program without SME if no channels above $l$ were opened.
-\begin{align*}
-\forall e,~ l.~~&\emptyset, e \rightarrow^{*}_l~C,v ~\wedge~\emptyset,e \rightarrow^{*} C',v'~\wedge  \\
-                & \neg \exists {(l',\_,\_) \in C'} . l' > l ~\Rightarrow \\ & v' = v~\wedge~ ~\{ \vec{n} ~|~ (l, \_, \vec{n}) \in C' \} = \{ \vec{n} ~|~ (l, \_, \vec{n}) \in C \}
-\end{align*}
-\label{th:lvl}
-\end{theorem}
+\subsection{Updating the scheduling vector}
 
-\begin{theorem}[Correctness (all)]
-  Evaluating a program for all security levels program as part of SME will result in the same observable behavior as running the program without SME if .
-\begin{align*}
-\forall e,~ l.~~&\emptyset, e \rightarrow^{*}_L~C,v ~\wedge~\emptyset,e \rightarrow^{*} C',v' ~\Rightarrow \\ & v = v'~\wedge~ ~\{ \vec{n} ~|~ (l, \_, \vec{n}) \in C' \} = \{ \vec{n} ~|~ (l, \_, \vec{n}) \in C \}
-\end{align*}
-\label{th:all}
-\end{theorem}
+The scheduling vector allows an arbitrary number of labels.  However, in order to achieve the same benefit as time donation discussed in Section \ref{s:donate}, the order of elements in the vector should be changed dynamically in a way that minimizes wasted time due to idleness while protecting against timing attacks.
 
-Theorem \ref{th:all} follows from Theorem \ref{th:lvl}.
+When thread $t$ changes from Ready to Blocked,
 
-\subsection{Timing attacks}
+\begin{itemize}
+  \item swap schedule position of $t$ with thread $t'$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
+\end{itemize}
+
+When thread $t$ changes from Blocked to Ready or gets created,
+
+\begin{itemize}
+  \item if newly created, add $t$ add the end of $v$;
+  \item swap schedule position of $t$ with thread $t'$ with $l_{t} \sqsubseteq l_{t'}$ and $t'$ is the first such thread.
+\end{itemize}
+
+When thread $t$ terminates,
+
+\begin{itemize}
+  \item if $t$ was last non-terminated thread at this level in the lattice, just remove it from $v$;
+  \item otherwise, assign $t'$ to the slot of $t$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
+\end{itemize}
+
+% \begin{theorem}[Correctness (level)]
+%   Evaluating a program in a security level $l$ as part of SME will result in the same observable behavior for channels labeled $l$ as running the program without SME if no channels above $l$ were opened.
+% \begin{align*}
+% \forall e,~ l.~~&\emptyset, e \rightarrow^{*}_l~C,v ~\wedge~\emptyset,e \rightarrow^{*} C',v'~\wedge  \\
+%                 & \neg \exists {(l',\_,\_) \in C'} . l' > l ~\Rightarrow \\ & v' = v~\wedge~ ~\{ \vec{n} ~|~ (l, \_, \vec{n}) \in C' \} = \{ \vec{n} ~|~ (l, \_, \vec{n}) \in C \}
+% \end{align*}
+% \label{th:lvl}
+% \end{theorem}
+
+% \begin{theorem}[Correctness (all)]
+%   Evaluating a program for all security levels program as part of SME will result in the same observable behavior as running the program without SME if .
+% \begin{align*}
+% \forall e,~ l.~~&\emptyset, e \rightarrow^{*}_L~C,v ~\wedge~\emptyset,e \rightarrow^{*} C',v' ~\Rightarrow \\ & v = v'~\wedge~ ~\{ \vec{n} ~|~ (l, \_, \vec{n}) \in C' \} = \{ \vec{n} ~|~ (l, \_, \vec{n}) \in C \}
+% \end{align*}
+% \label{th:all}
+% \end{theorem}
+
+% Theorem \ref{th:all} follows from Theorem \ref{th:lvl}.
+
+% \subsection{Timing attacks}
 
 
 
@@ -713,7 +865,7 @@ Theorem \ref{th:all} follows from Theorem \ref{th:lvl}.
 
 It is actually possible to ensure timing-sensitive non-interference while still allowing branches on private values, as shown by Kashyap et. al.~\cite{kashyap2011}.  They recognized that a custom scheduler could schedule public/low threads in a way that these cannot learn anything about the potential execution of higher/private threads.  Different scheduling strategies correspond to different trade-offs between correctness/starvation and performance.  Non-comparable labels in a lattice ($l \not \sqsubseteq l'~\wedge~l \not \sqsupseteq l'$) further complicate scheduling as two non-comparable threads have to be hidden from each other.  Nevertheless, timing-sensitive non-interference is actually possible and subsumes termination-sensitive non-interference.
 
-\section{Evaluation}
+% \section{Evaluation}
 
 
 
