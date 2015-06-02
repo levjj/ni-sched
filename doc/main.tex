@@ -267,11 +267,12 @@ Additionally, there are now two different evaluation relations.  The single thre
 \label{fig:io-sme}
 \end{figure}
 
-Given a program $e$ and a set of security labels $\mathcal{L}$, the initial state of the overall computation $\leadsto$ is denoted by $B = \emptyset$, $\Sigma = [e \mapsto l ~|~ l \in \mathcal{L}]$, $\vec{l} = \sigma(\mathcal{L})$ where $\sigma(\mathcal{L})$ is an arbitrary permutation of security labels $l$.
+Given a program $e$ and a set of security labels $\mathcal{L}$, the initial state of the overall computation $\leadsto$ is denoted by $B = \emptyset$, $\Sigma = [e \mapsto l ~|~ l \in \mathcal{L}]$, $\vec{l} = \text{Perm}(\mathcal{L})$ where Perm$(\mathcal{L})$ is an arbitrary permutation of security labels $l$.
 
 At each step $\leadsto$ the scheduling order $\vec{l}$ will be rotated which corresponds to a simple round robin scheduling.  However, terminated and blocked threads will still be scheduled by the rule \textsc{s-idle} which forces the execution to wait the exact same amount of time that \textsc{s-step} takes for executing a single execution step $\rightarrow_l$.  Alternatively, \textsc{s-step} might run for each a fixed budget of $n$ steps which also involves waiting $n-k$ steps if the threads blocks or terminates after $k$ steps.
 
 \subsection{Non-interference}
+\label{s:ni}
 
 With SME, only threads running with label $l$ can produce output to $l$-labeled channels.  Therefore, it is sufficient to prove that a thread running with label $l$ cannot be influenced by any information labeled $l' \not \sqsubseteq l$ to prove that the resulting system prevents leaks of information to unauthorized channels.
 
@@ -406,10 +407,9 @@ In case the configurations steps with \textsc{e-write} on a program $e=E[\text{w
 \[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
 \begin{array}{rrlr}
   &~~\epsilon_l(B_1) =& \epsilon_l(B_2) \\
-  \Rightarrow \forall l' \subseteq l.&~~\epsilon_l(B_1)(l',n_c) =& \epsilon_l(B_2)(l',n_c) \\
-  \Rightarrow \forall l' \subseteq l_e.&~~\epsilon_l(B_1)(l',n_c) =& \epsilon_l(B_2)(l',n_c) & ~~~~~~(l_e \sqsubseteq l)
+  \Rightarrow \forall l' \sqsubseteq l.&~~B_1(l',n_c) =& B_2(l',n_c) \\
+  \Rightarrow \forall l' \sqsubseteq l_e.&~~B_1(l',n_c) =& B_2(l',n_c) & ~~~~~~(l_e \sqsubseteq l)
 \end{array} \]
-
 
 \[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
 \begin{array}{rl}
@@ -478,8 +478,9 @@ To conclude, two configurations $B_1, \Sigma_1, \vec{l_1}$ and $B_2, \Sigma_2, \
 % \[ \epsilon_{l}(B) = \{ (l_c,n,\vec{n'}) | (l_c,n,\vec{n}) \} \]
 
 \subsection{Default values on read}
+\label{s:default}
 
-It is important to note that the proof of non-interference does not depend on suppressing reads by returning default values.  Another design alternative would not check for the label for reads and omit label annotations for reads entirely.  Due to the checks of the write operation, this would still have the non-interference security property.  However, this causes low execution threads to always block on ``high'' reads and wait for a low value that can be read.
+It is important to note that the proof of non-interference does not depend on suppressing reads by returning default values.  Another design alternative would omit the label check for reads and thereby omit label annotations for reads entirely.  Due to the checks of the write operation, this would still have the non-interference security property.  This has the advantage that no default/error values will be introduced into the execution.  Instead, low execution threads will always block on ``high'' reads and wait for a low value on that channel that can be read.
 
 In a way, annotating all reads with labels and returning default values if the label check fails, corresponds to \emph{clearance} which protects not only against unauthorized writes but also against a dependency on reads.
 
@@ -494,8 +495,6 @@ By adding time as a public observable variable $\delta$ to configurations of the
     \Rightarrow B'_1,\Sigma'_1, \vec{l'_1}, \delta'_1 \approx_l B'_2,\Sigma'_2, \vec{l'_2}, \delta'_2
   \end{align*}
 \end{theorem}
-
-In order to protect the secure multi execution language against timing attacks, the two steps taken by the scheduler \textsc{s-step} and \textsc{s-idle} have to be restricted to take the exact same amount of time.  This can be done by using a fixed time budget for each step which will be be used for executing threads and for waiting.  The updated semantics are shown in Figure \ref{fig:sme-time}.
 
 \begin{figure}
 \begin{center}
@@ -516,48 +515,158 @@ In order to protect the secure multi execution language against timing attacks, 
 \label{fig:sme-time}
 \end{figure}
 
-\begin{proof}
-  Assuming $B_1,\Sigma_1, \vec{l_1} \approx_l B_2,\Sigma_2, \vec{l_2}$, it follows that
-  \[ \epsilon_l(B_1) = \epsilon_l(B_2)~\wedge~\epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) ~\wedge~ \vec{l_1} = \vec{l_2}\]
-  with the same scheduled label $l_e$.
-  \[ \vec{l_1} = (l_e, ...) = \vec{l_2} \]
+\begin{figure*}[!t]
+\begin{center}
+\begin{bpt}
+  \AxiomC{$B, \Sigma(l) \not \rightarrow_l$}
+  \AxiomC{$l \sqsubset l_d$}
+  \AxiomC{$B, \Sigma(l_d) \rightarrow_{l_d} B', e'$}
+  \lab{s-donate}
+  \TrinaryInfC{$B, \Sigma, (l, l', ...) , \Sigma, \delta \leadsto B', \Sigma[l_d \mapsto e'], (l', ...~, l), \delta + 1 $}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$\forall l_e \in \mathcal{L}.~~l \not \sqsubseteq l_e ~\vee B, \Sigma(l_e) \not \rightarrow_{l_e}$}
+  \lab{s-idle}
+  \UnaryInfC{$B, \Sigma, (l, l', ...) , \Sigma, \delta \leadsto B, \Sigma, (l', ...~, l), \delta + 1 $}
+\end{bpt}
+\end{center}
+\caption{Blocked/terminated threads can donate their time to higher-level threads (replaces $\textsc{s-idle}$ in Figure \ref{fig:io-sme}).}
+\label{fig:sme-donate}
+\end{figure*}
 
+Here, the time $\delta$ is assumed to be publicly observable, so two configurations with times $\delta_1$ and $\delta_2$ are $l$-equivalent $\approx_l$ only if $\delta_1 = \delta_2$.
+
+In order to protect the secure multi execution language against timing attacks, the two steps taken by the scheduler \textsc{s-step} and \textsc{s-idle} have to be restricted to take the exact same amount of time.  This can be done by using a fixed time budget for each step which will be be used for executing threads and for waiting.  The updated semantics are shown in Figure \ref{fig:sme-time}.
+
+\begin{proof}
+  From $B_1,\Sigma_1, \vec{l_1}, \delta_1 \approx_l B_2,\Sigma_2, \vec{l_2}, \delta_2$ follows
+  \[ \epsilon_l(B_1) = \epsilon_l(B_2)~\wedge~\epsilon_l(\Sigma_1) = \epsilon_l(\Sigma_2) ~\wedge~ \vec{l_1} = \vec{l_2} ~\wedge \delta_1 = \delta_2 \]
+Independent of whether a configuration $B,\Sigma, \vec{l}, \delta$ steps with \textsc{s-step} or \textsc{s-idle}, each step takes the same amount of time $\delta' = \delta + 1$.  For the two configurations $B_1,\Sigma_1, \vec{l_1}, \delta_1$ and $B_2,\Sigma_2, \vec{l_2}, \delta_2$, the start times $\delta_1$ and $\delta_2$ are initially equal, so they remain equal.
+\[ \delta_1 = \delta_2 ~~\Rightarrow~~\delta_1 + 1 = \delta_2 + 1~~\Rightarrow~~\delta'_1 = \delta'_2 \]
+
+Together with the proof in Section \ref{s:ni}, we know that
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{rc}
+  & \epsilon_l(\Sigma'_1) = \epsilon_l(\Sigma'_2)~\wedge~\epsilon_l(B'_1) = \epsilon_l(B'_2) ~\wedge~\vec{l'_1} = \vec{l'_2} \\
+ \Rightarrow & B'_1,\Sigma'_1, \vec{l'_1}, \delta'_1 \approx_l B'_2,\Sigma'_2, \vec{l'_2}, \delta'_2
+\end{array} \]
 \end{proof}
 
 \section{Time donation}
 \label{s:donate}
 
-Time donation is really important.
+The SME strategy with simple, static round robin scheduling as described in the previous section is secure against timing attacks but has the problem of being inefficient in terms of time spent idle when other threads would be runnable.
 
-\begin{figure*}
+As an example, consider a $High-Low$ lattice as shown in Figure \ref{fig:lattice}, if the $L$ execution would be waiting for input in a blocking read while the $H$ execution would be able to step in its execution, the scheduling strategy described in the previous section would spent half the time being idle and half the time executing the $H$ thread.  However, the idle time could securely be spent executing the $H$ thread instead.  In this case, the $L$ thread would not learn anything about the $H$ computation which preserves security; while the $H$ execution now perform more computation in a given time due to $L$ computation which is a valid flow of information.
+
+Figure \ref{fig:sme-donate} shown the updated semantics for a scheduler that allows blocking or terminated low threads $l$ to ``donate'' its execution time to a higher level thread $l_d \sqsupset l$.  If there is no such thread, then there is no choice but to remain idle.  The resulting system is insensitive non-interferent among all security levels and timing-sensitive non-interferent between comparable levels.
+
+\subsection{Scheduling with incomparable security levels}
+
+\begin{figure*}[!t]
 \begin{center}
+\[ \leadsto : B, \Sigma, \Lambda \times B, \Sigma, \Lambda ~~~~~~~ \Lambda : \text{Perm}(\{ \text{Perm}(\vec{l}) ~|~~\forall \vec{l} \in \text{Topo}(\mathcal{L}) \})~~~~~~~\t{(Permutations of topological orderings)} \]
 \begin{bpt}
-  \AxiomC{$\Sigma(l) = e$}
-  \AxiomC{$C, e \not \rightarrow_l$}
-  \AxiomC{$l \not \sqsubseteq l_d$}
-  \AxiomC{$C, \Sigma(l_d) \rightarrow_{l_d} C', e'$}
-  \lab{s-donate}
-  \QuaternaryInfC{$C, \Sigma, (l, l', ...) , \Sigma \leadsto C', \Sigma[l_d \mapsto e'], (l', ...~, l) $}
+  \AxiomC{$\vec{l_1} = (l_1, l_2, ...)$}
+  \AxiomC{$B, \Sigma(l_1) \rightarrow_{l_1} B', e'$}
+  \AxiomC{$\vec{l'_1} = (l_2, ...,~l_1)$}
+  \lab{s-step}
+  \TrinaryInfC{$B, \Sigma, (\vec{l_1}, \vec{l_2}, ...), \delta \leadsto B', \Sigma[l_1 \mapsto e'], (\vec{l_2}, ...~, \vec{l'_1}), \delta + 1 $}
 \end{bpt} \\[1em]
 \begin{bpt}
-  \AxiomC{$\Sigma(l) = e$}
-  \AxiomC{$C, e \not \rightarrow_l$}
-  \AxiomC{$\forall l_d \in \mathcal{L}.~~l \sqsubseteq l_d ~\vee C, \Sigma(l_d) \not \rightarrow_{l_d}$}
+  \AxiomC{$\vec{l_1} = (l_1, l_2, ...)$}
+  \AxiomC{$B, \Sigma(l_1) \not \rightarrow_{l_1}$}
+  \AxiomC{$\vec{l'_1} = (l_2, ...,~l_1)$}
+  \AxiomC{$\vec{l_1} \sqsubset \vec{l_2} $}
+  \AxiomC{$B, \Sigma, (\vec{l_2}, ...~, \vec{l'_1}), \delta \leadsto B', \Sigma', (\vec{l'_3}, ...~,\vec{l'_2}), \delta'$}
+  \lab{s-donate}
+  \QuinaryInfC{$B, \Sigma, (\vec{l_1}, \vec{l_2}, ...) , \Sigma, \delta \leadsto B', \Sigma', (\vec{l'_2}, \vec{l'_3},...~ ,\vec{l'_1}), \delta'$}
+\end{bpt} \\[1em]
+\begin{bpt}
+  \AxiomC{$\vec{l_1} = (l_1, l_2, ...)$}
+  \AxiomC{$B, \Sigma(l_1) \not \rightarrow_{l_1}$}
+  \AxiomC{$\vec{l'_1} = (l_2, ...,~l_1)$}
+  \AxiomC{$\vec{l_1} \not \sqsubset \vec{l_2} $}
   \lab{s-idle}
-  \TrinaryInfC{$C, \Sigma, (l, l', ...) , \Sigma \leadsto C, \Sigma, (l', ...~, l) $}
+  \QuaternaryInfC{$B, \Sigma, (\vec{l_1}, \vec{l_2}, ...), \delta \leadsto B, \Sigma, (\vec{l_2}, ...~, \vec{l'_1}), \delta + 1 $}
 \end{bpt}
 \end{center}
-\caption{Blocked/terminated threads can donate their time to higher-level threads (replaces $\textsc{s-idle}$ in Figure \ref{fig:sme}).}
-\label{fig:sme-donate}
+\caption{Advanced lattice-based scheduling based on round-robin between incomparable labels and time donations between comparable labels (Single evaluation $\rightarrow_l$ as in Figure \ref{fig:io-sme}).}
+\label{fig:sme-lattice}
 \end{figure*}
 
-\section{Extension: first-class channels}
+Unfortunately, the semantics shown in Figure \ref{fig:sme-donate} is not timining-sensitive non-interferent among incomparable levels.
 
-In order to minimize the number of labels appearing throughout programs, it might be preferable to move labels to explicit ``open'' calls that return a channel given a label and name.  Reads and writes will then operate on channels and do not require label annotations.
+As an example, consider the $A,B$ lattice shown in Figure \ref{fig:lattice} with the threads labeled $\{A,B\}$ (information visible to both $A$ and $B$) and $\emptyset$ (information unavailable to either $A$ or $B$) both blocked or terminated, and the threads labeled $A$ and $B$ individually runnable.  A scheduler with the label $\{A,B\}$ as first label in $\vec{l}$ now has the choice between donating its time to either $A$ or $B$.  In case time gets donated to $A$, the execution $A$ would now perform more computation in a given time period than $B$which means that an external $B$ observer with timing information learns that execution time was donated to $A$, so $B$ learns that $A$ was not blocked.  This also works vice versa and cannot be resolved with a simple round robin scheduling between runnable threads.
 
-Figure \ref{fig:ch} shows a non-secure language extended with first-class channels.
+To solve this issue and enable timing-sensitive non-interference between incomparable labels with time donations, it is necessary to perform a lattice-based scheduling.  This means that instead of scheduling with a simple permutation of labels $\vec{l}$, the scheduling algorithm will use sets of mutually incomparable labels which corresponds to a permutation of topological orderings, a sequence of label sequences $\Lambda$.
+\[ \Lambda : \text{Perm}(\{ \text{Perm}(\vec{l}) ~|~~\forall \vec{l} \in \text{Topo}(\mathcal{L}) \}) \]
+Examples of such sequences for the lattices shown in Figure \ref{fig:lattice} are given below.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{lll}
+  \mathcal{L} = \{ L, H \} & \Rightarrow \Lambda = \{ & ((L), (H)),~((H), (L))\} \\
+  \mathcal{L} = \{ AB, A, B, \emptyset \} & \Rightarrow \Lambda = \{ & ((AB), (A, B), (\emptyset)), \\
+                                          &                          & ((AB), (B, A), (\emptyset)), \\
+                                          &                          & ((AB), (\emptyset), (A, B)), \\
+                                          &                          & ((AB), (\emptyset), (B, A)), ... \}
+\end{array} \]
 
-Figure \ref{fig:ch-sme} shows an operational semantics for secure multi execution with round robin scheduling comparable with the one in Figure \ref{fig:io-sme} but with first-class channels.
+Without time donation, it is possible to do a simply round robin scheduling between label classes $\Lambda$ and a simultaneous round robin scheduling within each label class $\vec{l}$.  It is easy to see that compared to simple scheduling as shown in Figure \ref{fig:io-sme}, this scheduling strategy would only slightly change the scheduling frequency of labels depending on the number of labels in each class but this changed is static and public, so timing-sensitive non-interference is preserved.
+
+Adding time donations to the scheduling of classes in this new model is possible as incomparable labels within a class are still scheduled with a round robin strategy, so in the diamond $A/B$ lattice, $A$ and $B$ will both share donations equally such that neither $A$ nor $B$ can learn about each others blocking/termination status.
+
+The extended operational semantics with new rules \textsc{s-step}, \textsc{s-donate} and \textsc{s-idle} is shown in Figure \ref{fig:sme-lattice}.  It is noteworthy that all three rules modify the schedule $\Lambda$ identically except that \textsc{s-donate} might introduce additional changes to the internal schedule of $\vec{l_2}$.  However, as donation only works upwards $\vec{l_1} \sqsupset \vec{l_2}$, this change will not be visible at the label level $\vec{l_1}$ and below.  Therefore, the new semantics still preserved timing-sensitive non-interference.
+
+\begin{theorem}[Timing-sensitive non-interference]
+  For all labels $l$, $l_e \in \mathcal{L}$, $l$-equivalent configurations $B_1,e_1,\delta_1 \approx_l B_2,e_2,\delta_2$ a step of execution $\leadsto$ with time donation as defined in Figure \ref{fig:sme-lattice} should preserve $l$-equivalence.
+  \begin{align*}
+    &B_1,\Sigma_1, \Lambda_1, \delta_1 \leadsto B'_1,\Sigma'_1, \Lambda'_1, \delta'_1 \\
+    \wedge~~&B_2,\Sigma_2,\Lambda_2, \delta_2 \leadsto B'_2,\Sigma'_2, \Lambda'_2, \delta'_2 \\
+    \Rightarrow~&B'_1,\Sigma'_1, \Lambda'_1, \delta'_1 \approx_l B'_2,\Sigma'_2, \Lambda'_2, \delta'_2
+  \end{align*}
+\end{theorem}
+
+Here, the schedule $\Lambda$ is assumed to be publicly observable except for the internal order of higher label classes, so two configurations with schedules $\Lambda_1$ and $\Lambda_2$ are $l$-equivalent $\approx_l$ if $\epsilon(\Lambda_1) = \epsilon(\Lambda_2)$ with
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{lr}
+\epsilon_{l}(\Lambda) = \left(i \mapsto \vec{l'_i} ~|~\Lambda(i) = \vec{l_i} ~\wedge~ \vec{l'_i} = \left \{ \begin{matrix} \vec{l_i} &~~~\vec{l_i} \sqsubseteq l \\ \emptyset &~~~\vec{l_i} \not \sqsubseteq l \end{matrix} \right. \right) \\
+\end{array} \]
+
+\begin{proof}
+  To do...
+\end{proof}
+
+\section{Extension: Reference cells}
+\label{s:ref}
+
+The language shown in Figure \ref{fig:io} can be extended with reference cells as simple syntactic extensions on top of channels.  Each reference cell has a single label $l_c$ and will only be updated by the corresponding SME thread with label $l = l_c$ and is accessible by SME threads with $l \sqsupseteq l_c$.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{ll}
+  loc & :~n_c \times l_c \\
+  \t{ref} l_c~n & \hat{=} \t{write} l_c~n_c~n~; \langle n_c, l_c \rangle \hfill (n_c~\text{fresh})  \\
+  ! \langle n_c, l_c \rangle & \hat{=} \t{let} n = \text{read}~l_c~n_c \t{in} \text{write}~l_c~n_c~n~; n \\
+  \langle n_c, l_c \rangle :=  n & \hat{=} \t{write} l_c~n_c~n~; n
+\end{array} \]
+Alternatively, it is also possible to allocate a reference cell with two distinct labels $l_r$ and $l_w$ with $l_r \sqsupseteq l_w$ such that $l_r$ controls access to information and $l_w$ controls integrity/clearance.  For example, with security levels $L, H$ and $T$, ``ref $T~L~23$'' allocates a cell with initial content ``23'' that can only be updated by the $L$ thread and therefore can never be influenced by $H$ or $T$ information, but additionally, $H$ threads will also never be influenced/poisoned by its content as all reads by an $H$ thread return default values.
+\[\arraycolsep=1.6pt\def\arraystretch{\arrayStretch}
+\begin{array}{ll}
+  loc & :~n_c \times l_r \times l_w \\
+  \t{ref} l_r~l_w~n & \hat{=} \t{write} l_w~n_c~n~; \langle n_c, l_r, l_w \rangle \hfill (n_c~\text{fresh})  \\
+  ! \langle n_c, l_r, l_w \rangle & \hat{=} \t{let} n = \text{read}~l_r~n_c \t{in} \text{write}~l_w~n_c~n~; n \\
+  \langle n_c, l_r, l_w \rangle :=  n & \hat{=} \t{write} l_w~n_c~n~; n
+\end{array} \]
+The design choice described in Section \ref{s:default} of using explicit labels on reads which return default values in case of violation or omitting these labels and checks and simple block for readable input also has consequences for reference cells based on buffered channels.
+
+\begin{itemize}
+  \item With label checks on read and default values, the program ``$loc := n ;~!loc$'' might not return $n$ but an unexpected default value instead.
+  \item Without read checks, the program ``$loc := n ;~!loc$'' always returns $n$, but the program ``$!loc$'' might block indefinitely, essentially terminating a low executing thread.
+\end{itemize}
+
+\section{Extension: First-class channels}
+
+In order to minimize the number of labels in programs, it might be preferable to move labels to explicit ``open'' calls that return a channel given a label and name.  Reads and writes will then operate on channels without and do not need label annotations.
+
+Figure \ref{fig:ch} shows a simple non-secure language extended with first-class channels and Figure \ref{fig:ch-sme} shows an operational semantics for secure multi execution with round robin scheduling comparable with the one in Figure \ref{fig:io-sme} but with first-class channels.
 
 Unfortunately, a proof of timing-sensitive non-interference is not given in this paper due to timing constraints.  There are interesting subtleties involved in correctly specifying semantics such that buffers do not include mixed output.
 
@@ -772,13 +881,13 @@ Unfortunately, a proof of timing-sensitive non-interference is not given in this
 
 \section{Extension: Dynamic labels}
 
-The scheduling strategy presented in section 2 assumes a fixes set of labels $\mathcal{L}$ which is known in advance.  In case new security labels can be created dynamically from an infinite set of possible values, it is necessary to change the scheduling to dynamically allocate time according to threads with currently active labels.
+The scheduling strategy presented in section 2 assumes a fixed set of labels $\mathcal{L}$ which is known in advance.  In case new security labels can be created dynamically from an infinite set of possible values, it is necessary to change the scheduling to dynamically allocate time according to threads with currently active labels.
 
-Due to timing constraints, the formalism for the scheduling with dynamic labels and a proof of timing-sensitive non-interference is not given in this paper.  However, the following sketch of the algorithm might serve as guide for a scheduling algorithm with timing-sensitive non-interference and protection against starvation between comparable and non-comparable threads.
+Due to timing constraints, the formalism for the scheduling with dynamic labels and a proof of timing-sensitive non-interference is not given in this paper.  However, the following sketch of the algorithm might serve as guide for a scheduling algorithm with timing-sensitive non-interference and protection against starvation between comparable and incomparable threads.
 
 \subsection{Scheduling with a vector}
 
-Assuming a scheduling vector $v$ with slots $i=1 \ldots \infty$, the scheduling probability $p(i)$ is $2^{-i}$ with $\sum_i p(i) = 1$.  The following figure illustrate a scheduling vector with three labels $l_1$, $l_2$ and $l_3$: \\[1ex]
+Assuming a scheduling vector $v$ with slots $i=1 \ldots \infty$, the scheduling probability $p(i)$ is $2^{-i}$ with $\sum_i p(i) = 1$.  The following figure illustrate a scheduling vector with three labels $l_1$, $l_2$ and $l_3$:
 
 \begin{tikzpicture}[->,node distance=6em]
   \node[state] (l1) {$l_1$};
@@ -794,49 +903,32 @@ Assuming a scheduling vector $v$ with slots $i=1 \ldots \infty$, the scheduling 
         (l2) edge node[above] {$p=\sfrac{1}{2}$} (l3)
         (l3) edge [loop above] node {$p=\sfrac{1}{2}$} (l3)
         (l3) edge node[above] {$p=\sfrac{1}{2}$} (idle);
-\end{tikzpicture} \\[1ex]
+\end{tikzpicture}
 
 In randomized scheduling, the weights of each element of the vector corresponds with random probabilities $p(i)$.
-
 \begin{enumerate}
   \item Initialize $i$ with 1.
   \item If $v_i$ is not runnable, remain idle.
   \item With $p(i)$ probability, schedule $v_i$.
   \item Otherwise, increment $i$ and repeat from step 2.
 \end{enumerate}
-
 In round-robin scheduling, the weights of each element are used to divide time into arbitrarily many slices and schedule each of these with the frequency $p(i)$.
-
 \begin{enumerate}
   \item Initialize $i$ with 1.
   \item If $v_i$ is not runnable, remain idle.
   \item If $i$ was skipped at the last scheduling decision for $i$, schedule $v_i$.
-  \item Otherwise, skip it, increment $i$ and repeat from step 2.
+  \item Otherwise, skip it, increment $i$, repeat from step 2.
 \end{enumerate}
 
 \subsection{Updating the scheduling vector}
 
 The scheduling vector allows an arbitrary number of labels.  However, in order to achieve the same benefit as time donation discussed in Section \ref{s:donate}, the order of elements in the vector should be changed dynamically in a way that minimizes wasted time due to idleness while protecting against timing attacks.
 
-When thread $t$ changes from Ready to Blocked,
+\textbf{When thread $t$ changes from Ready to Blocked}, swap schedule position of $t$ with thread $t'$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
 
-\begin{itemize}
-  \item swap schedule position of $t$ with thread $t'$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
-\end{itemize}
+\textbf{When thread $t$ changes from Blocked to Ready or gets created,} if newly created, add $t$ add the end of $v$; swap schedule position of $t$ with thread $t'$ with $l_{t} \sqsubseteq l_{t'}$ and $t'$ is the first such thread.
 
-When thread $t$ changes from Blocked to Ready or gets created,
-
-\begin{itemize}
-  \item if newly created, add $t$ add the end of $v$;
-  \item swap schedule position of $t$ with thread $t'$ with $l_{t} \sqsubseteq l_{t'}$ and $t'$ is the first such thread.
-\end{itemize}
-
-When thread $t$ terminates,
-
-\begin{itemize}
-  \item if $t$ was last non-terminated thread at this level in the lattice, just remove it from $v$;
-  \item otherwise, assign $t'$ to the slot of $t$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
-\end{itemize}
+\textbf{When thread $t$ terminates,} if $t$ was last non-terminated thread at this level in the lattice, just remove it from $v$; otherwise, assign $t'$ to the slot of $t$ with $l_{t'} \sqsubseteq l_t$ and $t'$ is the last such thread.
 
 % \begin{theorem}[Correctness (level)]
 %   Evaluating a program in a security level $l$ as part of SME will result in the same observable behavior for channels labeled $l$ as running the program without SME if no channels above $l$ were opened.
@@ -863,14 +955,15 @@ When thread $t$ terminates,
 
 \section{Related work}
 
-It is actually possible to ensure timing-sensitive non-interference while still allowing branches on private values, as shown by Kashyap et. al.~\cite{kashyap2011}.  They recognized that a custom scheduler could schedule public/low threads in a way that these cannot learn anything about the potential execution of higher/private threads.  Different scheduling strategies correspond to different trade-offs between correctness/starvation and performance.  Non-comparable labels in a lattice ($l \not \sqsubseteq l'~\wedge~l \not \sqsupseteq l'$) further complicate scheduling as two non-comparable threads have to be hidden from each other.  Nevertheless, timing-sensitive non-interference is actually possible and subsumes termination-sensitive non-interference.
+It is actually possible to ensure timing-sensitive non-interference while still allowing branches on private values, as shown by Kashyap et. al.~\cite{kashyap2011}.  They recognized that a custom scheduler could schedule public/low threads in a way that these cannot learn anything about the potential execution of higher/private threads.  Different scheduling strategies correspond to different trade-offs between correctness/starvation and performance.  Non-comparable labels in a lattice ($l \not \sqsubseteq l'~\wedge~l \not \sqsupseteq l'$) further complicate scheduling as two non-comparable threads have to be hidden from each other.  Nevertheless, timing-sensitive non-interference is still possible by using a lattice-based scheduler approach similar to the one in Figure \ref{fig:lattice}.
 
 % \section{Evaluation}
 
-
-
 \section{Conclusions}
 
+In this paper, we presented a lambda calculus with IO in terms of explicitly labeled reads and writes to named buffers.  Based on this calculus, we introduced a formalism for secure multi execution (SME) which evaluates a program once for each label while restricting reads with default values and suppresses writes based on the executing label.  We proved termination-sensitive non-interference for this system.  The proof lead to the realization that default values are a design choice and not necessary for SME.  Additionally, we introduced timing and round-robin scheduling between SME threads and proved timing-sensitive non-interference.  Acknowledging the wasted time in terms of idle computation, we first introduced a simple time donation scheme and showed that it leaks information between incomparable threads in a complex lattice of security levels.  An improved lattice-based scheduling with time donations solves this problem and provides timing-sensitive 
+
+Additionally, we discussed possible extensions, namely reference cells, first-class channels and dynamic labels, albeit without providing a complete formalism and proofs of their properties.
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}
